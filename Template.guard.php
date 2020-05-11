@@ -8,27 +8,108 @@
 </head>
 
 <body>
+<section>
+    <h2>Variable</h2>
     @php
-        $ok = 'sip';
-        $nama = 'binsar';
-        $asal = 'belitung';
-        $datas = ['satu','dua','tiga'];
+        $nama='binsar';
+    @endphp
+    <p>Hai nama saya adalah {{ $nama }}</p>
+</section>
+<section>
+    <h2>Foreach</h2>
+    @php
+        $datas=['satu','dua'];
     @endphp
     @foreach($datas as $data)
-        <h1>{ $data }</h1>
-    @empty
-        <p>kagak ada</p>
+        {{ $data }}
     @endforeach
-
+</section>
+<section>
+    <h2>Foreach with empty</h2>
+    @php
+        $datas=[];
+    @endphp
+    
     @foreach($datas as $data)
-        <h1>{ $data } okey</h1>
+        {{ $data }}
+    @empty
+        Data nya kosong
     @endforeach
-
-    @for($i=0;$i<=10;$i++)
-        <span>{ $i }</span>
+</section>
+<section>
+    <h2>For Loop</h2>
+    @for($i=1;$i < 10;$i++)
+        {{ $i }}
     @endfor
-
-    <p>Hai perkenalkan nama saya {$nama}, saya asli { $asal }</p>
+</section>
+<section>
+    <h2>while Loop</h2>
+    @php
+        $i=1;
+    @endphp
+    @while($i < 10)
+        {{ $i }}
+        @php
+            $i++;
+        @endphp
+    @endwhile
+</section>
+<section>
+    <h2>do While Loop</h2>
+    @php
+        $i=1;
+    @endphp
+    @do
+        {{ $i }}
+        @php
+            $i++;
+        @endphp
+    @while($i < 10)
+</section>
+<section>
+    <h2>percabangan if</h2>
+    @php
+        $no=1;
+    @endphp
+    @if($no==1)
+    no-1
+    @endif
+</section>
+<section>
+    <h2>percabangan if/else</h2>
+    @php
+        $no=0;
+    @endphp
+    @if($no==1)
+    no-1
+    @else
+    no bukan 1
+    @endif
+</section>
+<section>
+    <h2>percabangan if/elseif...elseif</h2>
+    @php
+        $no=2;
+    @endphp
+    @if($no==1)
+    no-1
+    @elseif($no==2)
+    no-2
+    @endif
+</section>
+<section>
+    <h2>percabangan if/elseif...elseif/else</h2>
+    @php
+        $no=3;
+    @endphp
+    @if($no==1)
+    no-1
+    @elseif($no==3)
+    no-2
+    @else
+    kondisi else
+    @endif
+</section>
 </body>
 
 </html>
