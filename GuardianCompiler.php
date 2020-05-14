@@ -5,7 +5,7 @@ namespace Intersec\View;
 
 use Exception;
 
-class Guardian {
+class View {
    /**
     * Lokasi file
     */
@@ -57,7 +57,7 @@ class Guardian {
     */
    public function get_realPath(String $file) {
       $this->view_path = $this->view_path != '' ? $this->view_path . '/' : $this->view_path;
-      $realpath = realpath($this->view_path . implode('/', explode('.', $file)) . $this->ext);
+      $realpath = realpathi($this->view_path . implode('/', explode('.', $file)) . $this->ext);
       if(!$realpath) {
          throw new Exception("View: [$file] does not exists!");
       }
@@ -76,7 +76,7 @@ class Guardian {
     * 
     * @return void
     */
-   public function set($key, $values): void {
+   public function setParams($key, $values): void {
       $this->variables[$key] = $values;
    }
 
@@ -340,7 +340,7 @@ class Guardian {
          $this->view = preg_replace($pattern, '', $this->view);
          $pattern = "#@extends\(('|\")(.*?)('|\")\)#i";
 
-         $this->view .= $this->get_file($matches[2]);
+         $this->view .= PHP_EOL. $this->get_file($matches[2]);
          preg_match($pattern, $this->view, $matches);
 
          if(array_key_exists(2, $matches)) {
@@ -395,7 +395,7 @@ class Guardian {
     * @return void
     */
    protected function _compilerYieldSection(): void {
-      $pattern = "#@yield\s*\(\s*('|\")(.*?)('|\")(\s*,\s*('|\")(.*?)('|\"))?\s*\)#i";
+      $pattern = "#@yield\s*\(\s*('|\")(.*?)('|\")(\s*,\s*('|\")(.*?)('|\"))?\s*\)#sim";
       $calback = function($yield) {
          $yield_name = $yield[2];
          $pattern = "#@section\s*\(\s*('|\")" . $yield_name . "('|\")\s*\).(.*?)@endsection#sim";
@@ -461,10 +461,3 @@ class Guardian {
       return $content;
    }
 }
-
-$guard = new Guardian('welcome','html');
-// $guard->set('cobain',"ok'e");
-$guard->compile();
-// echo $guard->view;
-$ok = $guard->html();
-echo $ok;
