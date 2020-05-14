@@ -21,11 +21,21 @@ class Guardian {
    /**
     * lokasi view untuk keperluan extends, includes, push, yield dan lain lain
     */
-   protected string $view_path;
+   protected string $view_path = '';
    /**
     * ekstensi yang digunakan pada template engine
     */
    protected string $ext = '.guard.php';
+   /**
+    * diperlukan untuk pengecekan apakah user men-include
+    * file itu sendiri
+    */
+   protected string $include = '';
+   /**
+    * diperlukan untuk pengecekan apakah user men-extends
+    * file itu sendiri
+    */
+   protected string $extends = '';
 
    /**
     * Mempersiapkan semuanya terlebih
@@ -36,17 +46,36 @@ class Guardian {
     *
     */
    public function __construct(String $file, String $view_path = '') {
-      // cek apakah file sudah tersedia
-      if(!file_exists($file)) {
-         throw new Exception("View: [" . basename($file) . "] does not exists!");
-      }
-      // cek jika ekstensi sama dengan property ext
-      if(substr(strtolower(basename($file)), -strlen($this->ext)) !== $this->ext) {
-         throw new Exception("View: [" . basename($file) . "] invalid extension!");
-      }
       $this->view_path = $view_path;
-      $this->view = file_get_contents($file);
+      $this->view = $this->get_file($file);
+      $this->file = $file;
    }
+   /**
+    * Mengambil path asli dari view
+    * @param String $file
+    *
+    */
+   public function get_realPath(String $file) {
+      $this->view_path = $this->view_path != '' ? $this->view_path . '/' : $this->view_path;
+      $realpath = realpath($this->view_path . implode('/', explode('.', $file)) . $this->ext);
+      if(!$realpath) {
+         throw new Exception("View: [$file] does not exists!");
+      }
+      return $realpath;
+   }
+   /** 
+    * Menyiapkan file
+   */
+   public function get_file(String $file) {
+      return file_get_contents($this->get_realPath($file));
+   }
+   /**
+    * Mendaftarkan variabel
+    * @param string $key
+    * @param any $values
+    * 
+    * @return void
+    */
    public function set($key, $values): void {
       $this->variables[$key] = $values;
    }
@@ -63,9 +92,9 @@ class Guardian {
          $value = preg_replace('/^"(.*)"$/','$1',$value);
          $value =  preg_replace("/'/", "\'", $value);
          if(json_decode($value) == ''){
-            $view = $view . "$" . $key . ' = json_decode(json_encode(\''. $value .'\'));'.PHP_EOL;
+            $view = $view . "$" . $key . ' = json_decode(json_encode(\''. $value .'\'));'."\n";
          } else {
-            $view = $view . "$" . $key . ' = json_decode(\''. $value .'\');'.PHP_EOL;
+            $view = $view . "$" . $key . ' = json_decode(\''. $value .'\');'."\n";
          }
       }
       $this->view = $view."\n?>\n".$this->view;
@@ -99,10 +128,22 @@ class Guardian {
     *
     * @return void
     */
-   protected function _compilerRawPhp(): void {
-      $pattern = "#{{(?:(|\s)+)(.*?)(?:(|\s)+)}}#sim";
+   protected function _compilerEchoPhp(): void {
+      // echo raw tags
+      $pattern = "#" . "{!" . "(?:(|\s)+)(.*?)(?:(|\s)+)" . "!}" . "#sim";
       $replacement = '<?= $2; ?>';
       $this->view = preg_replace($pattern, $replacement, $this->view);
+
+      // echo escape
+      $pattern = "#" . "{{{" . "(?:(|\s)+)(.*?)(?:(|\s)+)" . "}}}" . "#sim";
+      $replacement = '<?= addslashes($2); ?>';
+      $this->view = preg_replace($pattern, $replacement, $this->view);
+
+      // echo biasa
+      $pattern = "#" . "{{" . "(?:(|\s)+)(.*?)(?:(|\s)+)" . "}}" . "#sim";
+      $replacement = '<?= htmlentities(htmlspecialchars($2)); ?>'; 
+      $this->view = preg_replace($pattern, $replacement, $this->view);
+
    }
 
    /**
@@ -120,7 +161,7 @@ class Guardian {
        * 
        */
       $pattern = '#@foreach\s*\((.*?)\).(((?!@empty).)*?)@endforeach#sim';
-      $replacement  = "<?php foreach($1): ?>$2<?= PHP_EOL ?><?php endforeach; ?>";
+      $replacement  = "<?php foreach($1): ?>$2\n<?php endforeach; ?>";
       $this->view = preg_replace($pattern, $replacement, $this->view);
       /**
        * 
@@ -137,8 +178,8 @@ class Guardian {
        * 
        */
       $pattern = '#@foreach\s*\(((|[\s]+?)(.*?)(\s+)as(\s+)(.*?)(|[\s]+?)?)\).(.*?)@empty.(.*?)@endforeach#sim';
-      $replacement  = "<?php if(!empty($3)): ?>".PHP_EOL;
-      $replacement .= "<?php foreach($1): ?>".PHP_EOL;
+      $replacement  = "<?php if(!empty($3)): ?>\n";
+      $replacement .= "<?php foreach($1): ?>\n";
       $replacement .= "$8";
       $replacement .= "<?php endforeach; ?>";
       $replacement .= "<?php else: ?>";
@@ -155,7 +196,7 @@ class Guardian {
        * 
        */
       $pattern = '#@for\s*\((.*?)\).(.*?)@endfor#sim';
-      $replacement = "<?php for($1): ?>$2<?= PHP_EOL ?><?php endfor; ?>";
+      $replacement = "<?php for($1): ?>$2\n<?php endfor; ?>";
       $this->view = preg_replace($pattern, $replacement, $this->view);
       /**
        * 
@@ -167,7 +208,7 @@ class Guardian {
        * 
        */
       $pattern = '#@while\s*\((.*?)\).(.*?)@endwhile#sim';
-      $replacement = "<?php while($1): ?>$2<?= PHP_EOL ?><?php endwhile; ?>";
+      $replacement = "<?php while($1): ?>$2\n<?php endwhile; ?>";
       $this->view = preg_replace($pattern, $replacement, $this->view);
       /**
        * 
@@ -179,7 +220,7 @@ class Guardian {
        * 
        */
       $pattern = '#@do.(.*?)@while\s*\((.*?)\)#sim';
-      $replacement = "<?php do { ?>$1<?= PHP_EOL ?><?php } while($2); ?>";
+      $replacement = "<?php do { ?>$1\n<?php } while($2); ?>";
       $this->view = preg_replace($pattern, $replacement, $this->view);
    }
 
@@ -286,14 +327,120 @@ class Guardian {
       }, $this->view);
    }
 
+
+   /**
+    * Compiler untuk @extends
+    * @return void
+    */
+   protected function _compilerExtends(): void {
+      $pattern = "#@extends\(('|\")(.*?)('|\")\)#i";
+      preg_match($pattern, $this->view, $matches);
+      
+      if(count($matches) > 0 && array_key_exists(2, $matches)) {
+         $this->view = preg_replace($pattern, '', $this->view);
+         $pattern = "#@extends\(('|\")(.*?)('|\")\)#i";
+
+         $this->view .= $this->get_file($matches[2]);
+         preg_match($pattern, $this->view, $matches);
+
+         if(array_key_exists(2, $matches)) {
+
+            $extends = $matches[2];
+   
+            if($extends == $this->extends) {
+               throw new Exception("View: @extends('$extends') cannot call the file itself");
+            }
+
+            // digunakan untuk pengecekan apakah user memanggil file itu sendiri
+            $this->extends = $extends;
+            /**
+             * Lakukan pengecekan secara recursive
+             * dengan memanggil method ini sendiri
+             */
+            $this->{__FUNCTION__}();
+         }
+      }
+   }
+
+   /**
+    * Compiler untuk @include
+    * @return void
+    */
+   protected function _compilerInclude(): void {
+      $pattern = "#@include\(('|\")(.*?)('|\")\)#i";
+      preg_match_all($pattern, $this->view, $matches);
+      foreach($matches[2] as $include) {
+         // overwrite tag include
+         $pattern_value = "#@include\(('|\")" . $include ."('|\")\)#i";
+         $this->view = preg_replace($pattern_value,$this->get_file($include), $this->view);
+         
+         if($this->include == $include) {
+            throw new Exception("View: @include('$include') cannot call the file itself");
+         }
+
+
+         // digunakan untuk pengecekan apakah user memanggil file itu sendiri
+         $this->include = $include;
+         /**
+          * Lakukan pengecekan secara recursive
+          * dengan memanggil method ini sendiri
+          */
+         $this->{__FUNCTION__}();
+         
+      }
+   }
+
+   /**
+    * Compiler untuk @yield dan @section
+    * @return void
+    */
+   protected function _compilerYieldSection(): void {
+      $pattern = "#@yield\s*\(\s*('|\")(.*?)('|\")(\s*,\s*('|\")(.*?)('|\"))?\s*\)#i";
+      $calback = function($yield) {
+         $yield_name = $yield[2];
+         $pattern = "#@section\s*\(\s*('|\")" . $yield_name . "('|\")\s*\).(.*?)@endsection#sim";
+         preg_match_all($pattern, $this->view, $section);
+
+         if(count($section[3]) > 0) {
+            $section = $section[3][0];
+            return $section;
+         } else {
+            $pattern = "#@section\s*\(\s*('|\")" . $yield_name . "('|\")(\s*,\s*('|\")(.*?)('|\"))\s*\)$#sim";
+            preg_match($pattern, $this->view, $section_default);
+
+            if(count($section_default) > 0) {
+               return $section_default[5];
+            }
+            elseif(array_key_exists(6, $yield)) {
+               return $yield[6];
+            } else {
+               throw new Exception("View: " . $yield[0] . " has no default value!" );
+            }
+         }
+      };
+
+      // overwrite @yield('name') yang didapat dari @section('name')
+      $this->view = preg_replace_callback($pattern, $calback, $this->view);
+      // hapus tag @section
+      $pattern    = "#@section\s*\(\s*('|\")(.*?)('|\")(,('|\")(.*?)('|\"))?\s*\).(.*?)@endsection#sim";
+      $this->view = preg_replace($pattern, '', $this->view);
+      $pattern    = "#@section\s*\(\s*('|\").*('|\")(\s*,\s*('|\")(.*?)('|\"))\s*\)$#sim";
+      $this->view = preg_replace($pattern, '', $this->view);
+   }
+
+
    /**
     * compiler Guardian
     * @return void
     */
    public function compile(): void {
+      $this->_compilerExtends();
+      $this->_compilerInclude();
+      $this->_compilerYieldSection();
+
       $this->registerVariable();
       $this->_compilerPhp();
-      $this->_compilerRawPhp();
+      $this->_compilerEchoPhp();
       $this->_compilerLoops();
       $this->_compilerConditions();
    }
@@ -309,15 +456,14 @@ class Guardian {
          ob_get_clean();
          return new \Exception($e->getMessage().': line '.$e->getLine());
       }
-      $content = ob_get_clean();
+      $content = trim(ob_get_clean());
+
       return $content;
    }
 }
 
-$guard = new Guardian('Template.guard.php');
-$guard->set('cobain',"ok'e");
-$guard->set('cobain1',1);
-$guard->set('cobain2',['binsar']);
+$guard = new Guardian('welcome','html');
+// $guard->set('cobain',"ok'e");
 $guard->compile();
 // echo $guard->view;
 $ok = $guard->html();
